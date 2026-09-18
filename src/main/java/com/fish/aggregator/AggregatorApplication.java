@@ -1,6 +1,12 @@
 package com.fish.aggregator;
 
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.text.MessageFormat;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import javax.sql.DataSource;
@@ -16,11 +22,53 @@ import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.stereotype.Repository;
 
 import com.zaxxer.hikari.HikariDataSource;
 
-record Account(UUID accountId, String username) {
+record Comment(Account owner, String comment) {
 };
+
+record Account(UUID accountId, String username, List<Comment> comments) {
+	public Account {
+		// comments = List.copyOf(comments);
+	}
+};
+
+@Repository
+class AccountRepository {
+
+	private final JdbcClient dbclient;
+
+	public AccountRepository(JdbcClient dbclient) {
+		this.dbclient = dbclient;
+	}
+
+	Iterable<Account> getAllAccountsWithComments() {
+		return dbclient
+				.sql("SELECT * FROM account JOIN comment ON account_id = ownerid;")
+				.query(AccountRepository::getAllAccountWithCommentsMapper);
+	}
+
+	private static Iterable<Account> getAllAccountWithCommentsMapper(ResultSet rs) throws SQLException {
+		Map<String, Account> map = new HashMap<>();
+		while (rs.next()) {
+			String account_uuid = rs.getString("account_id");
+			if (!map.containsKey(account_uuid)) {
+				Account account = new Account(UUID.fromString(account_uuid), rs.getString("username"),
+						new ArrayList<>());
+				account.comments().add(new Comment(account, rs.getString("comment")));
+				map.put(account_uuid, account);
+			} else {
+				Account account = map.get(rs.getString(account_uuid));
+				Comment comment = new Comment(account, rs.getString("comment"));
+				account.comments().add(comment);
+			}
+		}
+		return map.values();
+	}
+
+}
 
 @ConfigurationProperties(prefix = "com.fish.aggregator.postgresconfig")
 record PostgresConfig(String url, String username, String password) {
@@ -54,19 +102,22 @@ class DBClientConfig {
 @Configuration
 class GlobalEventHandler {
 
-	private final JdbcClient dbclient;
+	private final AccountRepository accountrepo;
 
-	public GlobalEventHandler(JdbcClient dbclient) {
-		this.dbclient = dbclient;
+	public GlobalEventHandler(AccountRepository accountrepo) {
+		this.accountrepo = accountrepo;
 	}
 
 	@Bean
 	ApplicationListener<ApplicationReadyEvent> applicationReadyEventHandler() {
 		return (event) -> {
-			List<Account> accounts = dbclient.sql("SELECT * FROM account").query(Account.class).list();
-			for (Account account : accounts) {
-				System.out.println(account);
-			}
+			Iterable<Account> accounts = accountrepo.getAllAccountsWithComments();
+			accounts.forEach((account) -> {
+				System.out.println(MessageFormat.format("[id: {0}, username: {1}]", account.accountId(), account.username()));
+				account.comments().forEach(comment -> {
+					System.out.println(comment.comment());
+				});
+			});
 		};
 	}
 
