@@ -12,7 +12,7 @@ public class AggregatorApplication {
 
 	public static void main(String[] args) {
 		ConfigurableApplicationContext context = new SpringApplicationBuilder(AggregatorApplication.class)
-				.web(WebApplicationType.NONE)
+				// .web(WebApplicationType.NONE)
 				.run(args);
 	}
 }

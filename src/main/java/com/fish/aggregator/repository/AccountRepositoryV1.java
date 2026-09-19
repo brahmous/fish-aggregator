@@ -14,7 +14,7 @@ import org.springframework.stereotype.Repository;
 import com.fish.aggregator.repository.CommentRepository.Comment;
 
 @Repository
-public class AccountRepository {
+public class AccountRepositoryV1 {
 
   public static record Account(UUID accountId, String username, List<Comment> comments) {
     public Account {
@@ -24,14 +24,14 @@ public class AccountRepository {
 
   private final JdbcClient dbclient;
 
-  public AccountRepository(JdbcClient dbclient) {
+  public AccountRepositoryV1(JdbcClient dbclient) {
     this.dbclient = dbclient;
   }
 
   public Iterable<Account> getAllAccountsWithComments() {
     return dbclient
         .sql("SELECT * FROM account JOIN comment ON account_id = ownerid;")
-        .query(AccountRepository::getAllAccountWithCommentsMapper);
+        .query(AccountRepositoryV1::getAllAccountWithCommentsMapper);
   }
 
   private static Iterable<Account> getAllAccountWithCommentsMapper(ResultSet rs) throws SQLException {

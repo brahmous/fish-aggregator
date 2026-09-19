@@ -7,21 +7,21 @@ import org.springframework.context.ApplicationListener;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import com.fish.aggregator.repository.AccountRepository;
+import com.fish.aggregator.repository.AccountRepositoryV1;
 
 @Configuration
 public class GlobalEventHandler {
 
-  private final AccountRepository accountrepo;
+  private final AccountRepositoryV1 accountrepo;
 
-  public GlobalEventHandler(AccountRepository accountrepo) {
+  public GlobalEventHandler(AccountRepositoryV1 accountrepo) {
     this.accountrepo = accountrepo;
   }
 
   @Bean
   ApplicationListener<ApplicationReadyEvent> applicationReadyEventHandler() {
     return (event) -> {
-      Iterable<AccountRepository.Account> accounts = accountrepo.getAllAccountsWithComments();
+      Iterable<AccountRepositoryV1.Account> accounts = accountrepo.getAllAccountsWithComments();
       accounts.forEach((account) -> {
         System.out.println(MessageFormat.format("[id: {0}, username: {1}]",
             account.accountId(), account.username()));
