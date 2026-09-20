@@ -21,14 +21,6 @@ public class GlobalEventHandler {
   @Bean
   ApplicationListener<ApplicationReadyEvent> applicationReadyEventHandler() {
     return (event) -> {
-      Iterable<AccountRepositoryV1.Account> accounts = accountrepo.getAllAccountsWithComments();
-      accounts.forEach((account) -> {
-        System.out.println(MessageFormat.format("[id: {0}, username: {1}]",
-            account.accountId(), account.username()));
-        account.comments().forEach(comment -> {
-          System.out.println(comment.comment());
-        });
-      });
     };
   }
 }
