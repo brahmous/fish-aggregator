@@ -1,10 +1,7 @@
 package com.fish.aggregator.repository;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.ArrayList;
+import java.text.MessageFormat;
 import java.util.List;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.springframework.core.convert.converter.Converter;
@@ -12,6 +9,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Repository;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fish.aggregator.repository.AccountRepositoryV1.Account;
 import com.fish.aggregator.repository.CommentRepository.Comment;
 
@@ -21,6 +19,7 @@ public class PostRepository {
   public static record Upvote() {
   };
 
+  @JsonInclude(JsonInclude.Include.NON_NULL)
   public static record Post(
       int postid,
       String title,
@@ -42,10 +41,12 @@ public class PostRepository {
     this.dbclient = dbclient;
   }
 
-  public Iterable<Post> getPostsWithMetadata(LinksOrderBy ordering, int offset, int size) {
-    System.out.println("\n\n\n\n" + getPostsWithMetadataQuery() + "\n\n\n\n");
+  public Iterable<Post> getPostsWithMetadata(LinksOrderBy ordering, int offset, int limit) {
     Iterable<Post> posts = dbclient
         .sql(getPostsWithMetadataQuery())
+        .param("order_by", "createdat DESC")
+        .param("limit", limit)
+        .param("offset", offset)
         .query((rs, rowNumber) -> {
           return new Post(
               rs.getInt("postid"),
@@ -69,7 +70,15 @@ public class PostRepository {
    */
 
   private String getPostsWithMetadataQuery() {
-    String SQL = """
+    // String orderString = "createdat DESC";
+
+    // if (orderBy == LinksOrderBy.ACTIVITY) {
+    // TODO: change the quer to order by the articles with the most recent comment
+    // data
+    // throw new UnsupportedOperationException("Not yet implemented");
+    // }
+
+    String SQLTempalte = """
         SELECT
           postid,
           title,
@@ -84,8 +93,10 @@ public class PostRepository {
           SELECT postid as upvote_post_id, count(upvote.upvoteid) as upvote_count FROM upvote GROUP BY postid
           ) u ON u.upvote_post_id = post.postid
         JOIN domain ON domain.domainid = post.domainid
+        ORDER BY :order_by LIMIT :limit OFFSET :offset
         """;
-    return SQL.lines().map(String::trim).collect(Collectors.joining(" "));
+
+    return SQLTempalte.lines().map(String::trim).collect(Collectors.joining(" "));
   }
 
   public static enum LinksOrderBy {
