@@ -13,6 +13,7 @@ import com.fish.aggregator.repository.PostRepository.LinksOrderBy;
 import com.fish.aggregator.repository.PostRepository.Post;
 
 import jakarta.validation.constraints.Min;
+import jakarta.websocket.server.PathParam;
 import jakarta.validation.constraints.Max;
 
 /**
@@ -29,7 +30,7 @@ public class ApiV1 {
   }
 
   @GetMapping("/links")
-  public ResponseEntity<Iterable<Post>> handler(
+  public ResponseEntity<Iterable<Post>> getPagesOfLinks(
       @RequestParam(name = "sort") LinksOrderBy linksorderby,
       @RequestParam(name = "offset") @Min(value = 0, message = "cannot be a negative number") int offset,
       @RequestParam(name = "size") @Max(value = 50, message = "maximum is 50") int size) {

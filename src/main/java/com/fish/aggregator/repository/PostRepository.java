@@ -1,6 +1,5 @@
 package com.fish.aggregator.repository;
 
-import java.text.MessageFormat;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -78,7 +77,7 @@ public class PostRepository {
     // throw new UnsupportedOperationException("Not yet implemented");
     // }
 
-    String SQLTempalte = """
+    String SQLTemplate = """
         SELECT
           postid,
           title,
@@ -95,8 +94,7 @@ public class PostRepository {
         JOIN domain ON domain.domainid = post.domainid
         ORDER BY :order_by LIMIT :limit OFFSET :offset
         """;
-
-    return SQLTempalte.lines().map(String::trim).collect(Collectors.joining(" "));
+    return SQLTemplate.lines().map(String::trim).collect(Collectors.joining(" "));
   }
 
   public static enum LinksOrderBy {
