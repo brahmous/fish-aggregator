@@ -12,6 +12,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
 import com.fish.aggregator.repository.CommentRepository.Comment;
+import com.fish.aggregator.repository.CommentRepository.CommentMetadata;
 
 @Repository
 public class AccountRepositoryV1 {
@@ -41,11 +42,11 @@ public class AccountRepositoryV1 {
       if (!map.containsKey(account_uuid)) {
         Account account = new Account(UUID.fromString(account_uuid), rs.getString("username"),
             new ArrayList<>());
-        account.comments().add(new Comment(account, rs.getString("comment")));
+        account.comments().add(new Comment(account, rs.getString("comment"), new CommentMetadata(false)));
         map.put(account_uuid, account);
       } else {
         Account account = map.get(rs.getString(account_uuid));
-        Comment comment = new Comment(account, rs.getString("comment"));
+        Comment comment = new Comment(account, rs.getString("comment"), new CommentMetadata(false));
         account.comments().add(comment);
       }
     }

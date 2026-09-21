@@ -1,7 +1,12 @@
 package com.fish.aggregator.repository;
 
-import java.text.MessageFormat;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.springframework.core.convert.converter.Converter;
@@ -12,6 +17,7 @@ import org.springframework.stereotype.Repository;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fish.aggregator.repository.AccountRepositoryV1.Account;
 import com.fish.aggregator.repository.CommentRepository.Comment;
+import com.fish.aggregator.repository.CommentRepository.CommentMetadata;
 
 @Repository
 public class PostRepository {
@@ -31,8 +37,8 @@ public class PostRepository {
   };
 
   public static record PostMetadata(
-      int commentcount,
-      int upvotecount) {
+      Integer commentcount,
+      Integer upvotecount) {
   };
 
   private final JdbcClient dbclient;
@@ -47,29 +53,71 @@ public class PostRepository {
         .param("order_by", "createdat DESC")
         .param("limit", limit)
         .param("offset", offset)
-        .query((rs, rowNumber) -> {
-          return new Post(
-              rs.getInt("postid"),
-              rs.getString("title"),
-              rs.getString("link"),
-              null,
-              null,
-              null,
-              new PostMetadata(
-                  rs.getInt("comment_count"),
-                  rs.getInt("upvote_count")));
-        }).list();
+        .param("account_id", "11111111-1111-1111-1111-111111111111")
+        .query(PostRepository::getPostsWithMetadataMapper);
     return posts;
   }
 
-  /*
-   * private static Iterable<Post> getPostsWithMetadataMapper(ResultSet rs) throws
-   * SQLException {
-   * return List.of(new Post(0, null, null, null, null, null, null));
-   * }
-   */
+  private static Iterable<Post> getPostsWithMetadataMapper(ResultSet rs) throws SQLException {
+    Map<Integer, Post> postMap = new HashMap<>();
+    Map<UUID, Account> accountMap = new HashMap<>();
+    while (rs.next()) {
+      int postid = rs.getInt("postid");
 
-  private String getPostsWithMetadataQuery() {
+      UUID userId = UUID.fromString(rs.getString("accountid"));
+
+      if (!accountMap.containsKey(userId)) {
+        accountMap.put(userId,
+            new Account(
+                userId,
+                rs.getString("username"),
+                null));
+      }
+
+      if (!postMap.containsKey(postid)) {
+        Post newPost = new Post(
+            postid,
+            rs.getString("title"),
+            rs.getString("link"),
+            accountMap.get(userId),
+            new ArrayList<>(),
+            null,
+            new PostMetadata(
+                null,
+                rs.getInt("upvote_count")));
+        postMap.put(newPost.postid, newPost);
+      }
+
+      Post post = postMap.get(postid);
+      String comment = rs.getString("comment");
+      Boolean hasUpvoted = rs.getBoolean("has_upvoted");
+
+      Account owner = null;
+      UUID ownerid = UUID.fromString(rs.getString("commenter_id"));
+      if (accountMap.containsKey(ownerid)) {
+        owner = accountMap.get(ownerid);
+      } else {
+        owner = new Account(
+            ownerid,
+            rs.getString("commenter_username"),
+            null);
+        accountMap.put(ownerid, owner);
+      }
+
+      if (comment != null) {
+        post.comments.add(
+            new Comment(
+                owner,
+                comment,
+                new CommentMetadata(
+                    hasUpvoted != null ? hasUpvoted : false)));
+      }
+
+    }
+    return postMap.values();
+  }
+
+  public String getPostsWithMetadataQuery() {
     // String orderString = "createdat DESC";
 
     // if (orderBy == LinksOrderBy.ACTIVITY) {
@@ -79,21 +127,36 @@ public class PostRepository {
     // }
 
     String SQLTempalte = """
-        SELECT
-          postid,
-          title,
-          c.comment_count as comment_count,
-          u.upvote_count as upvote_count,
-          CONCAT(domain.domain, post.path) as link
-        FROM post
-        LEFT JOIN (
-          SELECT postid as comments_post_id, count(comment.commentid
-          ) as comment_count FROM comment GROUP BY postid) c ON comments_post_id = post.postid
-        LEFT JOIN (
-          SELECT postid as upvote_post_id, count(upvote.upvoteid) as upvote_count FROM upvote GROUP BY postid
-          ) u ON u.upvote_post_id = post.postid
-        JOIN domain ON domain.domainid = post.domainid
-        ORDER BY :order_by LIMIT :limit OFFSET :offset
+          SELECT
+            post.postid,
+            post.title,
+            u.upvote_count,
+            u.has_upvoted,
+            CONCAT(domain.domain, post.path) AS link,
+            account.username,
+            comment.comment,
+            post.createdat,
+            account.accountid,
+            owner.username as commenter_username,
+            owner.accountid as commenter_id
+          FROM (
+            SELECT *
+            FROM post
+            ORDER BY :order_by
+            LIMIT :limit OFFSET :offset
+          ) post
+          JOIN domain ON domain.domainid = post.domainid
+          JOIN account ON account.accountid = post.accountid
+          LEFT JOIN LATERAL (
+            SELECT
+              COUNT(upvote.upvoteid) AS upvote_count,
+              COALESCE(BOOL_OR(upvote.accountid = CAST(:account_id AS UUID)), false) AS has_upvoted
+            FROM upvote
+            WHERE upvote.postid = post.postid
+          ) u ON true
+          LEFT JOIN comment ON comment.postid = post.postid
+          LEFT JOIN account as owner ON comment.ownerid = owner.accountid
+          ORDER BY :order_by
         """;
 
     return SQLTempalte.lines().map(String::trim).collect(Collectors.joining(" "));
