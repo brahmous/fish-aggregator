@@ -30,7 +30,7 @@ public class AppRunner implements ApplicationRunner {
             postRepository.getPostsWithMetadataQuery())
             .replace(":limit", "10")
             .replace(":offset", "0")
-            .replace(":order_by", "createdat ASC")
+            .replace(":order_by", "created_at ASC")
             .replace(":account_id", "'11111111-1111-1111-1111-111111111111'"));
 
       }

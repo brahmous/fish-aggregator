@@ -2,6 +2,7 @@ package com.fish.aggregator.repository;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -31,6 +32,7 @@ public class PostRepository {
       String title,
       String link,
       Account poster,
+      OffsetDateTime created_at,
       List<Comment> comments,
       List<Upvote> upvotes,
       PostMetadata metadata) {
@@ -50,7 +52,7 @@ public class PostRepository {
   public Iterable<Post> getPostsWithMetadata(LinksOrderBy ordering, int offset, int limit) {
     Iterable<Post> posts = dbclient
         .sql(getPostsWithMetadataQuery())
-        .param("order_by", "createdat DESC")
+        .param("order_by", "created_at DESC")
         .param("limit", limit)
         .param("offset", offset)
         .param("account_id", "11111111-1111-1111-1111-111111111111")
@@ -80,6 +82,7 @@ public class PostRepository {
             rs.getString("title"),
             rs.getString("link"),
             accountMap.get(userId),
+            rs.getObject("post_created_at", OffsetDateTime.class),
             new ArrayList<>(),
             null,
             new PostMetadata(
@@ -110,7 +113,8 @@ public class PostRepository {
                 owner,
                 comment,
                 new CommentMetadata(
-                    hasUpvoted != null ? hasUpvoted : false)));
+                    hasUpvoted != null ? hasUpvoted : false),
+                rs.getObject("comment_created_at", OffsetDateTime.class)));
       }
 
     }
@@ -130,12 +134,14 @@ public class PostRepository {
           SELECT
             post.postid,
             post.title,
+            post.created_at as post_created_at,
             u.upvote_count,
             u.has_upvoted,
             CONCAT(domain.domain, post.path) AS link,
             account.username,
             comment.comment,
-            post.createdat,
+            comment.created_at as comment_created_at,
+            post.created_at,
             account.accountid,
             owner.username as commenter_username,
             owner.accountid as commenter_id

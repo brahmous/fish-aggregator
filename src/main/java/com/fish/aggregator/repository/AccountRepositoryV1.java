@@ -2,6 +2,7 @@ package com.fish.aggregator.repository;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -42,11 +43,19 @@ public class AccountRepositoryV1 {
       if (!map.containsKey(account_uuid)) {
         Account account = new Account(UUID.fromString(account_uuid), rs.getString("username"),
             new ArrayList<>());
-        account.comments().add(new Comment(account, rs.getString("comment"), new CommentMetadata(false)));
+        account.comments().add(new Comment(
+            account,
+            rs.getString("comment"),
+            new CommentMetadata(false),
+            OffsetDateTime.parse(rs.getString("comment_created_at"))));
         map.put(account_uuid, account);
       } else {
         Account account = map.get(rs.getString(account_uuid));
-        Comment comment = new Comment(account, rs.getString("comment"), new CommentMetadata(false));
+        Comment comment = new Comment(
+            account,
+            rs.getString("comment"),
+            new CommentMetadata(false),
+            rs.getObject("comment_created_at", OffsetDateTime.class));
         account.comments().add(comment);
       }
     }
